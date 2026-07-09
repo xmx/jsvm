@@ -1,10 +1,10 @@
 package jsstd
 
 import (
-	"fmt"
+	"bytes"
 	"log/slog"
-	"strings"
 
+	"github.com/dop251/goja"
 	"github.com/xmx/jsvm"
 )
 
@@ -13,40 +13,58 @@ type consoleModule struct {
 	log *slog.Logger
 }
 
-func NewConsole() jsvm.ModuleLoader {
+func NewConsole() jsvm.Module {
 	return &consoleModule{}
 }
 
-func (m *consoleModule) LoadModule(vm *jsvm.VM, opts jsvm.LoadModuleOptions) (string, map[string]any, error) {
+func (m *consoleModule) Name() string {
+	return "console"
+}
+
+func (m *consoleModule) Load(vm *jsvm.VM, exp *goja.Object) error {
 	m.vm = vm
 	m.log = vm.Logger()
 	vals := map[string]any{
-		"log":   m.logFunc(slog.LevelInfo),
-		"debug": m.logFunc(slog.LevelDebug),
-		"warn":  m.logFunc(slog.LevelWarn),
-		"error": m.logFunc(slog.LevelError),
+		"log":   m.print(slog.LevelInfo),
+		"info":  m.print(slog.LevelInfo),
+		"debug": m.print(slog.LevelDebug),
+		"warn":  m.print(slog.LevelWarn),
+		"error": m.print(slog.LevelError),
 	}
 
-	return "console", vals, nil
+	return jsvm.SetExports(exp, vals)
 }
 
-func (m *consoleModule) logFunc(level slog.Level) func(...any) {
-	return func(args ...any) {
-		parts := make([]string, 0, len(args))
-		for _, arg := range args {
-			parts = append(parts, fmt.Sprint(arg))
+func (m *consoleModule) print(lvl slog.Level) func(goja.FunctionCall) goja.Value {
+	return func(call goja.FunctionCall) goja.Value {
+		ctx := m.vm.Context()
+		log := m.vm.Logger()
+		if !log.Enabled(ctx, lvl) {
+			return goja.Null()
 		}
-		msg := strings.Join(parts, " ")
 
-		switch level {
-		case slog.LevelDebug:
-			m.log.Debug(msg)
-		case slog.LevelWarn:
-			m.log.Warn(msg)
-		case slog.LevelError:
-			m.log.Error(msg)
-		default:
-			m.log.Info(msg)
+		buf := m.format(call)
+		msg := buf.String()
+		m.log.Log(ctx, lvl, msg)
+
+		return goja.Undefined()
+	}
+}
+
+func (m *consoleModule) format(call goja.FunctionCall) *bytes.Buffer {
+	dst := new(bytes.Buffer)
+	num := len(call.Arguments)
+	for i, arg := range call.Arguments {
+		m.parseAny(dst, arg)
+		if i < num-1 {
+			dst.WriteByte(' ')
 		}
 	}
+
+	return dst
+}
+
+func (m *consoleModule) parseAny(dst *bytes.Buffer, val goja.Value) {
+	msg := jsvm.StringValue(val)
+	dst.WriteString(msg)
 }

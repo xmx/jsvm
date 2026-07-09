@@ -2,7 +2,6 @@ package jsvm
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"sync/atomic"
@@ -13,21 +12,21 @@ import (
 // VM is a JavaScript virtual machine backed by goja.
 // It provides lifecycle management, module loading, and cleanup.
 type VM struct {
-	log     *slog.Logger
-	cleaner cleaner
-	rt      *goja.Runtime
-	modules map[string]goja.Value
-	closed  atomic.Bool
-	ctx     context.Context
-	cancel  context.CancelFunc
+	log      *slog.Logger
+	cleaner  cleaner
+	rt       *goja.Runtime
+	modules  map[string]goja.Value
+	modloads map[string]Module
+	closed   atomic.Bool
+	ctx      context.Context
+	cancel   context.CancelFunc
 }
 
 // NewVM creates a new VM. When parent is cancelled or Cancel is called,
 // all registered CleanHandles are closed in reverse registration order.
 func NewVM(parent context.Context, log *slog.Logger) *VM {
 	rt := goja.New()
-	mapper := goja.TagFieldNameMapper("json", true)
-	rt.SetFieldNameMapper(mapper)
+	rt.SetFieldNameMapper(tagMapper("json"))
 	cln := newCleanerMap(log)
 	modules := make(map[string]goja.Value, 16)
 	ctx, cancel := context.WithCancel(parent)
@@ -58,17 +57,14 @@ func (vm *VM) Context() context.Context {
 
 // AddModules registers modules from the given loaders. The returned
 // values are accessible to JS code via require(name).
-func (vm *VM) AddModules(mods []ModuleLoader, opts LoadModuleOptions) error {
-	rt := vm.rt
-	for _, lm := range mods {
-		pkg, vals, err := lm.LoadModule(vm, opts)
-		if err != nil {
-			return err
-		}
-		vm.modules[pkg] = rt.ToValue(vals)
+func (vm *VM) AddModules(mods []Module) {
+	if vm.modloads == nil {
+		vm.modloads = make(map[string]Module, len(mods))
 	}
-
-	return nil
+	for _, mod := range mods {
+		name := mod.Name()
+		vm.modloads[name] = mod
+	}
 }
 
 // AddCleaner registers a resource to be closed when the VM shuts down.
@@ -131,10 +127,41 @@ func (vm *VM) close() error {
 
 func (vm *VM) require(call goja.FunctionCall) goja.Value {
 	name := call.Argument(0).String()
-	if val, ok := vm.modules[name]; ok {
-		return val
+	obj, err := vm.resolve(name)
+	if obj != nil {
+		return obj
+	}
+	if err != nil {
+		if _, ok := err.(*goja.Exception); !ok {
+			panic(vm.rt.NewGoError(err))
+		}
+		panic(err)
 	}
 
-	err := errors.New("module not found: " + name)
-	panic(vm.rt.NewGoError(err))
+	panic(vm.rt.NewTypeError("cannot find module '%s'.", name))
+}
+
+func (vm *VM) resolve(name string) (goja.Value, error) {
+	val, ok := vm.modules[name]
+	if ok {
+		return val, nil
+	}
+
+	ld, yes := vm.modloads[name]
+	if !yes {
+		return nil, nil
+	}
+
+	// 忽略各种复杂的实现，只关心 exports
+	exp := vm.rt.NewObject()
+	if err := ld.Load(vm, exp); err != nil {
+		return nil, err
+	}
+
+	if vm.modules == nil {
+		vm.modules = make(map[string]goja.Value, 8)
+	}
+	vm.modules[name] = exp
+
+	return exp, nil
 }

@@ -3,18 +3,23 @@ package jsstd
 import (
 	"os"
 
+	"github.com/dop251/goja"
 	"github.com/xmx/jsvm"
 )
+
+func NewOS() jsvm.Module {
+	return &osModule{}
+}
 
 type osModule struct {
 	vm *jsvm.VM
 }
 
-func NewOS() jsvm.ModuleLoader {
-	return &osModule{}
+func (m *osModule) Name() string {
+	return "os"
 }
 
-func (m *osModule) LoadModule(vm *jsvm.VM, opts jsvm.LoadModuleOptions) (string, map[string]any, error) {
+func (m *osModule) Load(vm *jsvm.VM, exports *goja.Object) error {
 	m.vm = vm
 	vals := map[string]any{
 		"args":          os.Args,
@@ -31,9 +36,6 @@ func (m *osModule) LoadModule(vm *jsvm.VM, opts jsvm.LoadModuleOptions) (string,
 		"getpid":        os.Getpid,
 		"getwd":         os.Getwd,
 	}
-	if opts.Unsafe {
-		vals["unsetenv"] = os.Unsetenv
-	}
 
-	return "os", vals, nil
+	return jsvm.SetExports(exports, vals)
 }

@@ -7,7 +7,10 @@ import (
 	"github.com/evanw/esbuild/pkg/api"
 )
 
-// Transform uses esbuild to transpile modern JS/TS/JSX to ES2015 CommonJS.
+// Transform transpiles the input source string and strip types from it.
+// this is done using esbuild
+//
+// https://github.com/grafana/k6/blob/c0bc819af0fdb3595fbafc6897cd8abd32da9d84/internal/js/compiler/enhanced.go#L9
 func Transform(name, code string) api.TransformResult {
 	opts := api.TransformOptions{
 		LogLevel:      api.LogLevelSilent,

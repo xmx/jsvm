@@ -1,0 +1,53 @@
+package jsstd
+
+import (
+	"time"
+
+	"github.com/dop251/goja"
+	"github.com/xmx/jsvm"
+)
+
+func NewTime() jsvm.Module {
+	return &timeModule{}
+}
+
+type timeModule struct{}
+
+func (m *timeModule) Name() string {
+	return "time"
+}
+
+func (m *timeModule) Load(_ *jsvm.VM, exports *goja.Object) error {
+	vals := map[string]any{
+		"nanosecond":    time.Nanosecond,
+		"microsecond":   time.Microsecond,
+		"millisecond":   time.Millisecond,
+		"second":        time.Second,
+		"minute":        time.Minute,
+		"hour":          time.Hour,
+		"january":       time.January,
+		"february":      time.February,
+		"march":         time.March,
+		"april":         time.April,
+		"may":           time.May,
+		"june":          time.June,
+		"july":          time.July,
+		"august":        time.August,
+		"september":     time.September,
+		"october":       time.October,
+		"november":      time.November,
+		"december":      time.December,
+		"sunday":        time.Sunday,
+		"monday":        time.Monday,
+		"tuesday":       time.Tuesday,
+		"wednesday":     time.Wednesday,
+		"thursday":      time.Thursday,
+		"friday":        time.Friday,
+		"saturday":      time.Saturday,
+		"local":         time.Local,
+		"parseDuration": time.ParseDuration,
+		"afterFunc":     time.AfterFunc,
+	}
+
+	return jsvm.SetExports(exports, vals)
+}
