@@ -94,11 +94,16 @@ func (cm *cleanerMap) execute() {
 }
 
 type cleanHandle struct {
-	id  int64
-	cln cleaner
+	id   int64
+	cln  cleaner
+	back io.Closer
 }
 
 func (ch *cleanHandle) Close() error {
+	if back := ch.back; back != nil {
+		return back.Close()
+	}
+
 	if c := ch.Unregister(); c != nil {
 		return c.Close()
 	}
@@ -107,5 +112,9 @@ func (ch *cleanHandle) Close() error {
 }
 
 func (ch *cleanHandle) Unregister() io.Closer {
+	if ch.back != nil {
+		return nil
+	}
+
 	return ch.cln.unregister(ch.id)
 }

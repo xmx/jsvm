@@ -70,15 +70,14 @@ func (vm *VM) AddModules(mods []Module) {
 // AddCleaner registers a resource to be closed when the VM shuts down.
 // Returns a CleanHandle and true on success, or nil and false if the VM is closed.
 func (vm *VM) AddCleaner(c io.Closer) (CleanHandle, bool) {
+	cln := &cleanHandle{cln: vm.cleaner}
 	if vm.closed.Load() {
-		return nil, false
+		cln.back = c
+		return cln, false
 	}
-	id := vm.cleaner.register(c)
+	cln.id = vm.cleaner.register(c)
 
-	return &cleanHandle{
-		id:  id,
-		cln: vm.cleaner,
-	}, true
+	return cln, true
 }
 
 // RunProgram executes a compiled program. Returns context.Canceled if the VM is closed.

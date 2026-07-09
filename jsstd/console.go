@@ -9,8 +9,7 @@ import (
 )
 
 type consoleModule struct {
-	vm  *jsvm.VM
-	log *slog.Logger
+	vm *jsvm.VM
 }
 
 func NewConsole() jsvm.Module {
@@ -23,7 +22,6 @@ func (m *consoleModule) Name() string {
 
 func (m *consoleModule) Load(vm *jsvm.VM, exp *goja.Object) error {
 	m.vm = vm
-	m.log = vm.Logger()
 	vals := map[string]any{
 		"log":   m.print(slog.LevelInfo),
 		"info":  m.print(slog.LevelInfo),
@@ -40,12 +38,12 @@ func (m *consoleModule) print(lvl slog.Level) func(goja.FunctionCall) goja.Value
 		ctx := m.vm.Context()
 		log := m.vm.Logger()
 		if !log.Enabled(ctx, lvl) {
-			return goja.Null()
+			return goja.Undefined()
 		}
 
 		buf := m.format(call)
 		msg := buf.String()
-		m.log.Log(ctx, lvl, msg)
+		log.Log(ctx, lvl, msg)
 
 		return goja.Undefined()
 	}
