@@ -28,16 +28,16 @@ func NewVM(parent context.Context, log *slog.Logger) *VM {
 	rt := goja.New()
 	rt.SetFieldNameMapper(tagMapper("json"))
 	cln := newCleanerMap(log)
-	modules := make(map[string]goja.Value, 16)
 	ctx, cancel := context.WithCancel(parent)
 
 	vm := &VM{
-		log:     log,
-		rt:      rt,
-		cleaner: cln,
-		modules: modules,
-		ctx:     ctx,
-		cancel:  cancel,
+		log:      log,
+		rt:       rt,
+		cleaner:  cln,
+		modules:  make(map[string]goja.Value, 16),
+		modloads: make(map[string]Module, 16),
+		ctx:      ctx,
+		cancel:   cancel,
 	}
 	_ = rt.Set("require", vm.require)
 	context.AfterFunc(ctx, vm.closeNopError)
@@ -58,9 +58,6 @@ func (vm *VM) Context() context.Context {
 // AddModules registers modules from the given loaders. The returned
 // values are accessible to JS code via require(name).
 func (vm *VM) AddModules(mods []Module) {
-	if vm.modloads == nil {
-		vm.modloads = make(map[string]Module, len(mods))
-	}
 	for _, mod := range mods {
 		name := mod.Name()
 		vm.modloads[name] = mod
@@ -155,10 +152,6 @@ func (vm *VM) resolve(name string) (goja.Value, error) {
 	exp := vm.rt.NewObject()
 	if err := ld.Load(vm, exp); err != nil {
 		return nil, err
-	}
-
-	if vm.modules == nil {
-		vm.modules = make(map[string]goja.Value, 8)
 	}
 	vm.modules[name] = exp
 
