@@ -39,8 +39,8 @@ func NewVM(parent context.Context, log *slog.Logger) *VM {
 		ctx:      ctx,
 		cancel:   cancel,
 	}
-	_ = rt.Set("require", vm.require)
 	context.AfterFunc(ctx, vm.closeNopError)
+	_ = rt.Set("require", vm.require)
 
 	return vm
 }
