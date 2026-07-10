@@ -1,120 +1,117 @@
 package jsvm
 
 import (
+	"cmp"
 	"io"
-	"log/slog"
-	"sort"
+	"slices"
 	"sync"
 )
 
-// CleanHandle controls the lifecycle of a registered resource.
-// Close closes the resource and removes it from the VM's cleanup list.
-// Unregister removes the resource without closing it.
+// CleanHandle 控制已注册资源的生命周期。
+// Close 关闭资源并从 VM 清理列表中移除。
+// Unregister 仅从清理列表中移除资源，不关闭。
 type CleanHandle interface {
 	io.Closer
 
-	// Unregister removes the resource from the VM's cleanup list.
-	// Returns the original io.Closer, or nil if it was already removed.
+	// Unregister 从 VM 清理列表中移除资源。
+	// 返回原始 io.Closer；若已被移除则返回 nil。
 	Unregister() io.Closer
 }
 
-type cleaner interface {
-	register(io.Closer) int64
+// cleanManager 管理一组可关闭资源。
+// register 添加资源并返回唯一标识 id。
+// unregister 按 id 移除资源但不关闭。
+// closeAll 按注册顺序逆序关闭所有资源，此后禁止再次注册。
+type cleanManager interface {
+	// register 注册待释放资源，返回其唯一 id 和是否成功。
+	register(c io.Closer) (id int64, succeed bool)
+
+	// unregister 按 id 注销资源，返回原 io.Closer；若不存在则返回 nil。
 	unregister(id int64) io.Closer
-	execute()
+
+	// closeAll 逆序关闭所有已注册资源，并将管理器标记为已执行。
+	closeAll()
 }
 
-type cleanerMap struct {
-	log     *slog.Logger
-	serial  int64
-	mutex   sync.Mutex
-	closers map[int64]io.Closer
+type cleanMapManager struct {
+	mutex sync.Mutex
+	seq   int64
+	done  bool
+	elems map[int64]io.Closer
 }
 
-func newCleanerMap(log *slog.Logger) cleaner {
-	return &cleanerMap{
-		log:     log,
-		closers: make(map[int64]io.Closer),
+func (cm *cleanMapManager) register(c io.Closer) (int64, bool) {
+	cm.mutex.Lock()
+	defer cm.mutex.Unlock()
+
+	if cm.done {
+		return 0, false
 	}
-}
-
-func (cm *cleanerMap) register(c io.Closer) int64 {
-	cm.mutex.Lock()
-	cm.serial++
-	id := cm.serial
-	cm.closers[id] = c
-	cm.mutex.Unlock()
-
-	cm.log.Debug("vm cleanup register", "id", id)
-
-	return id
-}
-
-func (cm *cleanerMap) unregister(id int64) io.Closer {
-	cm.mutex.Lock()
-	cls := cm.closers[id]
-	delete(cm.closers, id)
-	cm.mutex.Unlock()
-
-	if cls == nil {
-		cm.log.Debug("vm cleanup unregister nil", "id", id)
-	} else {
-		cm.log.Debug("vm cleanup unregister", "id", id)
+	if cm.elems == nil {
+		cm.elems = make(map[int64]io.Closer, 4)
 	}
 
-	return cls
+	cm.seq++
+	id := cm.seq
+	cm.elems[id] = c
+
+	return id, true
 }
 
-func (cm *cleanerMap) execute() {
+func (cm *cleanMapManager) unregister(id int64) io.Closer {
 	cm.mutex.Lock()
-	closers := cm.closers
-	cm.closers = make(map[int64]io.Closer)
+	defer cm.mutex.Unlock()
+
+	cl := cm.elems[id]
+	delete(cm.elems, id)
+
+	return cl
+}
+
+func (cm *cleanMapManager) closeAll() {
+	cm.mutex.Lock()
+	done := cm.done
+	elems := cm.elems
+	cm.done = true
+	cm.elems = nil
 	cm.mutex.Unlock()
 
-	ids := make([]int64, 0, len(closers))
-	for id := range closers {
+	if done {
+		return
+	}
+
+	ids := make([]int64, 0, len(elems))
+	for id := range elems {
 		ids = append(ids, id)
 	}
-	sort.Slice(ids, func(i, j int) bool {
-		return ids[i] > ids[j]
+	slices.SortFunc(ids, func(a, b int64) int {
+		return cmp.Compare(b, a)
 	})
-
 	for _, id := range ids {
-		c := closers[id]
-		if c == nil {
-			continue
-		}
-
-		if err := c.Close(); err == nil {
-			cm.log.Debug("vm cleanup close success", "id", id)
-		} else {
-			cm.log.Warn("vm cleanup close error", "id", id, "err", err)
+		if cl := elems[id]; cl != nil {
+			_ = cl.Close()
 		}
 	}
 }
 
-type cleanHandle struct {
-	id   int64
-	cln  cleaner
-	back io.Closer
+type fallbackCleanHandle struct {
+	id int64
+	cm cleanManager
+	fb io.Closer
 }
 
-func (ch *cleanHandle) Close() error {
-	if back := ch.back; back != nil {
-		return back.Close()
+func (fch *fallbackCleanHandle) Close() error {
+	cl := fch.fb
+	if cl == nil {
+		cl = fch.cm.unregister(fch.id)
 	}
-
-	if c := ch.Unregister(); c != nil {
-		return c.Close()
+	if cl != nil {
+		return cl.Close()
 	}
 
 	return nil
 }
 
-func (ch *cleanHandle) Unregister() io.Closer {
-	if ch.back != nil {
-		return nil
-	}
-
-	return ch.cln.unregister(ch.id)
+func (fch *fallbackCleanHandle) Unregister() io.Closer {
+	return fch.cm.unregister(fch.id)
 }

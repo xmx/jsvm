@@ -1,6 +1,7 @@
 package jsstd
 
 import (
+	"context"
 	"net/http"
 
 	"github.com/dop251/goja"
@@ -38,7 +39,11 @@ func (m *httpModule) listenAndServe(addr string, h http.Handler) error {
 		Handler: h,
 	}
 
-	cln, _ := m.vm.AddCleaner(srv)
+	cln, succ := m.vm.AddCleaner(srv)
+	if !succ {
+		return context.Canceled
+	}
+
 	err := srv.ListenAndServe()
 	_ = cln.Close()
 
