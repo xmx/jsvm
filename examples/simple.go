@@ -23,12 +23,12 @@ func main() {
 	})
 
 	val, err := vm.RunScript("hi", `
-import {A} from 'console'
+import console from 'console'
 import http from 'net/http'
 
 const mux = http.newServeMux()
 mux.handleFunc('/ping', (w, r) => {
-	A.log('收到请求 ' + r.remoteAddr)
+	console.log('收到请求 ' + r.remoteAddr)
 	w.write('PONG')
 })
 
