@@ -3,21 +3,16 @@ package jsstd
 import (
 	"time"
 
-	"github.com/dop251/goja"
 	"github.com/xmx/jsvm"
 )
 
-func NewTime() jsvm.Module {
+func NewTime() jsvm.ModuleExporter {
 	return &timeModule{}
 }
 
 type timeModule struct{}
 
-func (m *timeModule) Name() string {
-	return "time"
-}
-
-func (m *timeModule) Load(_ *jsvm.VM, exports *goja.Object) error {
+func (m *timeModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
 	vals := map[string]any{
 		"nanosecond":    time.Nanosecond,
 		"microsecond":   time.Microsecond,
@@ -49,5 +44,8 @@ func (m *timeModule) Load(_ *jsvm.VM, exports *goja.Object) error {
 		"afterFunc":     time.AfterFunc,
 	}
 
-	return jsvm.SetExports(exports, vals)
+	return jsvm.ModuleExports{
+		Name:    "time",
+		Default: vals,
+	}
 }

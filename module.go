@@ -1,21 +1,38 @@
 package jsvm
 
-import "github.com/dop251/goja"
+import (
+	"maps"
+)
 
-type Module interface {
-	// Name returns the module name.
-	Name() string
-
-	// Load loads the module.
-	Load(vm *VM, exports *goja.Object) error
+// ModuleExporter is what a module needs to return
+type ModuleExporter interface {
+	ModuleExports(vm *VM) ModuleExports
 }
 
-func SetExports(exports *goja.Object, vals map[string]any) error {
-	for k, v := range vals {
-		if err := exports.Set(k, v); err != nil {
-			return err
-		}
+// ModuleExports is representation of ESM exports of a module
+type ModuleExports struct {
+	Name string
+
+	// Default is what will be the `default` export of a module
+	Default any
+
+	// Named is the named exports of a module
+	Named map[string]any
+}
+
+func (exp ModuleExports) toESM() any {
+	if exp.Named == nil {
+		return exp.Default
+	}
+	if exp.Default == nil {
+		return exp.Named
 	}
 
-	return nil
+	result := make(map[string]any, len(exp.Named)+2)
+	maps.Copy(result, exp.Named)
+	result["default"] = exp.Default
+	// This is to interop with any code that is transpiled by Babel or any similar tool.
+	result["__esModule"] = true
+
+	return result
 }

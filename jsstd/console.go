@@ -12,25 +12,8 @@ type consoleModule struct {
 	vm *jsvm.VM
 }
 
-func NewConsole() jsvm.Module {
+func NewConsole() jsvm.ModuleExporter {
 	return &consoleModule{}
-}
-
-func (m *consoleModule) Name() string {
-	return "console"
-}
-
-func (m *consoleModule) Load(vm *jsvm.VM, exp *goja.Object) error {
-	m.vm = vm
-	vals := map[string]any{
-		"log":   m.print(slog.LevelInfo),
-		"info":  m.print(slog.LevelInfo),
-		"debug": m.print(slog.LevelDebug),
-		"warn":  m.print(slog.LevelWarn),
-		"error": m.print(slog.LevelError),
-	}
-
-	return jsvm.SetExports(exp, vals)
 }
 
 func (m *consoleModule) print(lvl slog.Level) func(goja.FunctionCall) goja.Value {
@@ -46,6 +29,22 @@ func (m *consoleModule) print(lvl slog.Level) func(goja.FunctionCall) goja.Value
 		log.Log(ctx, lvl, msg)
 
 		return goja.Undefined()
+	}
+}
+
+func (m *consoleModule) ModuleExports(vm *jsvm.VM) jsvm.ModuleExports {
+	m.vm = vm
+	vals := map[string]any{
+		"log":   m.print(slog.LevelInfo),
+		"info":  m.print(slog.LevelInfo),
+		"debug": m.print(slog.LevelDebug),
+		"warn":  m.print(slog.LevelWarn),
+		"error": m.print(slog.LevelError),
+	}
+
+	return jsvm.ModuleExports{
+		Name:    "console",
+		Default: vals,
 	}
 }
 

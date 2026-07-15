@@ -4,7 +4,6 @@ import (
 	"context"
 	"net/http"
 
-	"github.com/dop251/goja"
 	"github.com/xmx/jsvm"
 )
 
@@ -12,22 +11,21 @@ type httpModule struct {
 	vm *jsvm.VM
 }
 
-func NewHTTP() jsvm.Module {
+func NewHTTP() jsvm.ModuleExporter {
 	return &httpModule{}
 }
 
-func (m *httpModule) Name() string {
-	return "net/http"
-}
-
-func (m *httpModule) Load(vm *jsvm.VM, exports *goja.Object) error {
+func (m *httpModule) ModuleExports(vm *jsvm.VM) jsvm.ModuleExports {
 	m.vm = vm
 	vals := map[string]any{
 		"newServeMux":    http.NewServeMux,
 		"listenAndServe": m.listenAndServe,
 	}
 
-	return jsvm.SetExports(exports, vals)
+	return jsvm.ModuleExports{
+		Name:    "net/http",
+		Default: vals,
+	}
 }
 
 func (m *httpModule) listenAndServe(addr string, h http.Handler) error {

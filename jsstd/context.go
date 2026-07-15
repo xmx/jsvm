@@ -3,19 +3,14 @@ package jsstd
 import (
 	"context"
 
-	"github.com/dop251/goja"
 	"github.com/xmx/jsvm"
 )
 
-func NewContext() jsvm.Module { return new(contextModule) }
+func NewContext() jsvm.ModuleExporter { return new(contextModule) }
 
 type contextModule struct{}
 
-func (m *contextModule) Name() string {
-	return "context"
-}
-
-func (m *contextModule) Load(_ *jsvm.VM, exports *goja.Object) error {
+func (m *contextModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
 	vals := map[string]any{
 		"background":   context.Background,
 		"withCancel":   context.WithCancel,
@@ -24,5 +19,8 @@ func (m *contextModule) Load(_ *jsvm.VM, exports *goja.Object) error {
 		"withDeadline": context.WithDeadline,
 	}
 
-	return jsvm.SetExports(exports, vals)
+	return jsvm.ModuleExports{
+		Name:    "context",
+		Default: vals,
+	}
 }

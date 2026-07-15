@@ -15,7 +15,7 @@ func Transform(name, code string) api.TransformResult {
 	opts := api.TransformOptions{
 		LogLevel:      api.LogLevelSilent,
 		Sourcemap:     api.SourceMapInline,
-		Target:        api.ES2015,
+		Target:        api.ES2017,
 		Platform:      api.PlatformNeutral,
 		Format:        api.FormatCommonJS,
 		Charset:       api.CharsetUTF8,

@@ -15,7 +15,7 @@ func main() {
 	log := slog.Default()
 
 	vm := jsvm.NewVM(ctx, log)
-	vm.AddModules([]jsvm.Module{jsstd.NewConsole(), jsstd.NewHTTP()})
+	vm.RegisterModules([]jsvm.ModuleExporter{jsstd.NewConsole(), jsstd.NewHTTP()})
 
 	time.AfterFunc(10*time.Second, func() {
 		fmt.Println("=========================")
@@ -23,16 +23,16 @@ func main() {
 	})
 
 	val, err := vm.RunScript("hi", `
-import console from 'console'
+import {A} from 'console'
 import http from 'net/http'
 
 const mux = http.newServeMux()
 mux.handleFunc('/ping', (w, r) => {
-	console.log('收到请求 ' + r.remoteAddr)
+	A.log('收到请求 ' + r.remoteAddr)
 	w.write('PONG')
 })
 
-http.listenAndServe(':8080', mux)
+http.listenAndServe(':8088', mux)
 `)
 	fmt.Println(err)
 	fmt.Println(val)

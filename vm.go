@@ -20,8 +20,7 @@ type VM struct {
 	log       *slog.Logger
 	cleaner   cleanManager
 	rt        *goja.Runtime
-	modules   map[string]goja.Value
-	modloads  map[string]Module
+	exports   map[string]ModuleExports
 	used      atomic.Bool
 	onceClose func()
 	ctx       context.Context
@@ -38,13 +37,12 @@ func NewVM(parent context.Context, log *slog.Logger) *VM {
 	ctx, cancel := context.WithCancel(parent)
 
 	vm := &VM{
-		log:      log,
-		rt:       rt,
-		cleaner:  new(cleanMapManager),
-		modules:  make(map[string]goja.Value, 16),
-		modloads: make(map[string]Module, 16),
-		ctx:      ctx,
-		cancel:   cancel,
+		log:     log,
+		rt:      rt,
+		cleaner: new(cleanMapManager),
+		exports: make(map[string]ModuleExports, 16),
+		ctx:     ctx,
+		cancel:  cancel,
 	}
 	vm.onceClose = sync.OnceFunc(vm.close)
 	context.AfterFunc(ctx, vm.onceClose)
@@ -59,12 +57,13 @@ func (vm *VM) Logger() *slog.Logger { return vm.log }
 // Context returns the VM's context. It is cancelled when the VM is closed.
 func (vm *VM) Context() context.Context { return vm.ctx }
 
-// AddModules registers module loaders. Modules are loaded on-demand when
-// JS code calls require(name), and loaded modules are cached.
-func (vm *VM) AddModules(mods []Module) {
+func (vm *VM) RegisterModules(mods []ModuleExporter) {
 	for _, mod := range mods {
-		name := mod.Name()
-		vm.modloads[name] = mod
+		if mod == nil {
+			continue
+		}
+		exp := mod.ModuleExports(vm)
+		vm.exports[exp.Name] = exp
 	}
 }
 
@@ -109,6 +108,14 @@ func (vm *VM) RunScript(name, code string) (goja.Value, error) {
 	return vm.RunProgram(pgm)
 }
 
+func (vm *VM) Throw(err error) {
+	//goland:noinspection GoTypeAssertionOnErrors
+	if e, ok := err.(*goja.Exception); ok {
+		panic(e)
+	}
+	panic(vm.rt.NewGoError(err)) // this catches the stack unlike rt.ToValue
+}
+
 // Cancel shuts down the VM. It cancels the VM's context, interrupts any running
 // script, and closes all registered resources. Safe to call multiple times;
 // concurrent and subsequent calls block and all receive the same error from the
@@ -130,32 +137,20 @@ func (vm *VM) require(call goja.FunctionCall) goja.Value {
 		return obj
 	}
 	if err != nil {
-		if _, ok := err.(*goja.Exception); !ok {
-			panic(vm.rt.NewGoError(err))
-		}
-		panic(err)
+		vm.Throw(err)
 	}
 
 	panic(vm.rt.NewTypeError("cannot find module '%s'.", name))
 }
 
 func (vm *VM) resolve(name string) (goja.Value, error) {
-	val, ok := vm.modules[name]
-	if ok {
-		return val, nil
-	}
-
-	ld, yes := vm.modloads[name]
-	if !yes {
+	exp, ok := vm.exports[name]
+	if !ok {
 		return nil, nil
 	}
 
-	// 忽略各种复杂的实现，只关心 exports
-	exp := vm.rt.NewObject()
-	if err := ld.Load(vm, exp); err != nil {
-		return nil, err
-	}
-	vm.modules[name] = exp
+	esm := exp.toESM()
+	ret := vm.rt.ToValue(esm)
 
-	return exp, nil
+	return ret, nil
 }

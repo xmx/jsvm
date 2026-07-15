@@ -51,3 +51,8 @@ func StringArrayBuffer(ab goja.ArrayBuffer) string {
 	bs := ab.Bytes()
 	return base64.StdEncoding.EncodeToString(bs)
 }
+
+// IsNullish checks if the given value is nullish, i.e. nil, undefined or null.
+func IsNullish(v goja.Value) bool {
+	return v == nil || goja.IsNull(v) || goja.IsUndefined(v)
+}
