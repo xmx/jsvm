@@ -5,6 +5,7 @@ import (
 	"log/slog"
 	"os"
 	"testing"
+	"time"
 
 	"github.com/xmx/jsvm"
 	"github.com/xmx/jsvm/jsstd"
@@ -26,6 +27,7 @@ func TestSimple(t *testing.T) {
 
 	vm := jsvm.NewVM(ctx, log)
 	vm.RegisterModules(mods)
+	time.AfterFunc(60*time.Second, vm.Cancel)
 
 	_, err = vm.RunScript("main.js", code)
 	t.Log(err)

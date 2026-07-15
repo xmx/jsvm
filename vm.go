@@ -2,7 +2,6 @@ package jsvm
 
 import (
 	"context"
-	"errors"
 	"io"
 	"log/slog"
 	"sync"
@@ -11,20 +10,18 @@ import (
 	"github.com/dop251/goja"
 )
 
-// ErrExecuted is returned when RunProgram or RunScript is called more than once.
-var ErrExecuted = errors.New("vm: already executed")
-
 // VM is a JavaScript virtual machine backed by goja.
 // It provides lifecycle management, module loading, and cleanup.
 type VM struct {
-	log       *slog.Logger
-	cleaner   cleanManager
-	rt        *goja.Runtime
-	exports   map[string]ModuleExports
-	used      atomic.Bool
-	onceClose func()
-	ctx       context.Context
-	cancel    context.CancelFunc
+	log     *slog.Logger
+	cleaner cleanManager
+	rt      *goja.Runtime
+	modules map[string]goja.Value
+	exports map[string]ModuleExports
+	used    atomic.Bool
+	oncec   func()
+	ctx     context.Context
+	cancel  context.CancelFunc
 }
 
 // NewVM creates a new VM with a runtime, module system, and cleanup mechanism.
@@ -40,12 +37,13 @@ func NewVM(parent context.Context, log *slog.Logger) *VM {
 		log:     log,
 		rt:      rt,
 		cleaner: new(cleanMapManager),
+		modules: make(map[string]goja.Value, 16),
 		exports: make(map[string]ModuleExports, 16),
 		ctx:     ctx,
 		cancel:  cancel,
 	}
-	vm.onceClose = sync.OnceFunc(vm.close)
-	context.AfterFunc(ctx, vm.onceClose)
+	vm.oncec = sync.OnceFunc(vm.close)
+	context.AfterFunc(ctx, vm.oncec)
 	_ = rt.Set("require", vm.require)
 
 	return vm
@@ -59,11 +57,10 @@ func (vm *VM) Context() context.Context { return vm.ctx }
 
 func (vm *VM) RegisterModules(mods []ModuleExporter) {
 	for _, mod := range mods {
-		if mod == nil {
-			continue
+		if mod != nil {
+			exp := mod.ModuleExports(vm)
+			vm.exports[exp.Name] = exp
 		}
-		exp := mod.ModuleExports(vm)
-		vm.exports[exp.Name] = exp
 	}
 }
 
@@ -89,11 +86,6 @@ func (vm *VM) AddCleaner(c io.Closer) (CleanHandle, bool) {
 // After execution completes, the VM is automatically cancelled.
 // Use Compile to create programs from source code.
 func (vm *VM) RunProgram(pgm *goja.Program) (goja.Value, error) {
-	if !vm.used.CompareAndSwap(false, true) {
-		return nil, ErrExecuted
-	}
-	defer vm.Cancel()
-
 	return vm.rt.RunProgram(pgm)
 }
 
@@ -122,7 +114,7 @@ func (vm *VM) Throw(err error) {
 // first shutdown.
 func (vm *VM) Cancel() {
 	vm.cancel()
-	vm.onceClose()
+	vm.oncec()
 }
 
 func (vm *VM) close() {
@@ -144,13 +136,18 @@ func (vm *VM) require(call goja.FunctionCall) goja.Value {
 }
 
 func (vm *VM) resolve(name string) (goja.Value, error) {
+	if val, ok := vm.modules[name]; ok {
+		return val, nil
+	}
+
 	exp, ok := vm.exports[name]
 	if !ok {
 		return nil, nil
 	}
 
 	esm := exp.toESM()
-	ret := vm.rt.ToValue(esm)
+	val := vm.rt.ToValue(esm)
+	vm.modules[name] = val
 
-	return ret, nil
+	return val, nil
 }
