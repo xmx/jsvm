@@ -1,0 +1,32 @@
+package examples_test
+
+import (
+	"context"
+	"log/slog"
+	"os"
+	"testing"
+
+	"github.com/xmx/jsvm"
+	"github.com/xmx/jsvm/jsstd"
+)
+
+func TestSimple(t *testing.T) {
+	raw, err := os.ReadFile("main.js")
+	if err != nil {
+		t.Fatal(err)
+	}
+	code := string(raw)
+
+	ctx := context.Background()
+	log := slog.Default()
+	mods := []jsvm.ModuleExporter{
+		jsstd.NewConsole(),
+		jsstd.NewHTTP(),
+	}
+
+	vm := jsvm.NewVM(ctx, log)
+	vm.RegisterModules(mods)
+
+	_, err = vm.RunScript("main.js", code)
+	t.Log(err)
+}
