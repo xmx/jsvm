@@ -12,7 +12,7 @@ import (
 )
 
 func TestSimple(t *testing.T) {
-	raw, err := os.ReadFile("main.js")
+	raw, err := os.ReadFile("time.js")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -24,6 +24,7 @@ func TestSimple(t *testing.T) {
 		jsstd.NewConsole(),
 		jsstd.NewHTTP(),
 	}
+	context.Background()
 
 	vm := jsvm.NewVM(ctx, log)
 	vm.RegisterModules(mods)

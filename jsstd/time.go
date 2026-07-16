@@ -41,7 +41,8 @@ func (m *timeModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
 		"saturday":      time.Saturday,
 		"local":         time.Local,
 		"parseDuration": time.ParseDuration,
-		"afterFunc":     time.AfterFunc,
+		"loadLocation":  time.LoadLocation,
+		"date":          time.Date,
 	}
 
 	return jsvm.ModuleExports{
