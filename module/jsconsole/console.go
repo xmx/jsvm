@@ -1,4 +1,4 @@
-package jsstd
+package jsconsole
 
 import (
 	"bytes"
@@ -12,7 +12,7 @@ type consoleModule struct {
 	vm *jsvm.VM
 }
 
-func NewConsole() jsvm.ModuleExporter {
+func New() jsvm.ModuleExporter {
 	return &consoleModule{}
 }
 
@@ -34,7 +34,7 @@ func (m *consoleModule) print(lvl slog.Level) func(goja.FunctionCall) goja.Value
 
 func (m *consoleModule) ModuleExports(vm *jsvm.VM) jsvm.ModuleExports {
 	m.vm = vm
-	vals := map[string]any{
+	defaults := map[string]any{
 		"log":   m.print(slog.LevelInfo),
 		"info":  m.print(slog.LevelInfo),
 		"debug": m.print(slog.LevelDebug),
@@ -44,7 +44,7 @@ func (m *consoleModule) ModuleExports(vm *jsvm.VM) jsvm.ModuleExports {
 
 	return jsvm.ModuleExports{
 		Name:    "console",
-		Default: vals,
+		Default: defaults,
 	}
 }
 

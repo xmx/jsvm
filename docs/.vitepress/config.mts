@@ -46,6 +46,7 @@ export default defineConfig({
                                 {text: 'console', link: '/modules/console'},
                                 {text: 'context', link: '/modules/context'},
                                 {text: 'time', link: '/modules/time'},
+                                {text: 'net/http', link: '/modules/net/http'},
                             ]
                         }
                     ]

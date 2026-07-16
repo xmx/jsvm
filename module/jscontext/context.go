@@ -1,4 +1,4 @@
-package jsstd
+package jscontext
 
 import (
 	"context"
@@ -6,12 +6,12 @@ import (
 	"github.com/xmx/jsvm"
 )
 
-func NewContext() jsvm.ModuleExporter { return new(contextModule) }
+func New() jsvm.ModuleExporter { return new(contextModule) }
 
 type contextModule struct{}
 
 func (m *contextModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
-	vals := map[string]any{
+	defaults := map[string]any{
 		"background":   context.Background,
 		"withCancel":   context.WithCancel,
 		"withTimeout":  context.WithTimeout,
@@ -21,6 +21,6 @@ func (m *contextModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
 
 	return jsvm.ModuleExports{
 		Name:    "context",
-		Default: vals,
+		Default: defaults,
 	}
 }

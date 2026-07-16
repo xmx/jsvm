@@ -33,12 +33,17 @@ func StringValue(v goja.Value) string {
 		}
 
 		ev := tv.Export()
-		bs, err := json.Marshal(ev)
-		if err != nil {
-			return "Marshal Error: " + err.Error()
-		}
+		switch gv := ev.(type) {
+		case []byte:
+			return string(gv)
+		default:
+			bs, err := json.Marshal(ev)
+			if err != nil {
+				return "Marshal Error: " + err.Error()
+			}
 
-		return string(bs)
+			return string(bs)
+		}
 	case *goja.Symbol:
 		s := tv.String()
 		return "Symbol(" + s + ")"

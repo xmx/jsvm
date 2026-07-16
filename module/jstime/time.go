@@ -1,4 +1,4 @@
-package jsstd
+package jstime
 
 import (
 	"time"
@@ -6,14 +6,14 @@ import (
 	"github.com/xmx/jsvm"
 )
 
-func NewTime() jsvm.ModuleExporter {
+func New() jsvm.ModuleExporter {
 	return &timeModule{}
 }
 
 type timeModule struct{}
 
 func (m *timeModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
-	vals := map[string]any{
+	defaults := map[string]any{
 		"nanosecond":    time.Nanosecond,
 		"microsecond":   time.Microsecond,
 		"millisecond":   time.Millisecond,
@@ -47,6 +47,6 @@ func (m *timeModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
 
 	return jsvm.ModuleExports{
 		Name:    "time",
-		Default: vals,
+		Default: defaults,
 	}
 }

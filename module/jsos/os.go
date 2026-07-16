@@ -1,4 +1,4 @@
-package jsstd
+package jsos
 
 import (
 	"os"
@@ -6,12 +6,12 @@ import (
 	"github.com/xmx/jsvm"
 )
 
-func NewOS() jsvm.ModuleExporter {
-	return &osModule{}
-}
-
 type osModule struct {
 	vm *jsvm.VM
+}
+
+func New() jsvm.ModuleExporter {
+	return new(osModule)
 }
 
 func (m *osModule) ModuleExports(vm *jsvm.VM) jsvm.ModuleExports {

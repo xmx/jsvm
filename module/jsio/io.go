@@ -1,4 +1,4 @@
-package jsstd
+package jsio
 
 import (
 	"io"
@@ -8,8 +8,8 @@ import (
 
 type ioModule struct{}
 
-func NewIO() jsvm.ModuleExporter {
-	return &httpModule{}
+func New() jsvm.ModuleExporter {
+	return &ioModule{}
 }
 
 func (m *ioModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
@@ -18,6 +18,7 @@ func (m *ioModule) ModuleExports(*jsvm.VM) jsvm.ModuleExports {
 		"discard":     io.Discard,
 		"EOF":         io.EOF,
 		"limitReader": io.LimitReader,
+		"readAll":     io.ReadAll,
 	}
 
 	return jsvm.ModuleExports{
