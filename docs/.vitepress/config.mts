@@ -38,17 +38,26 @@ export default defineConfig({
         sidebar: {
             '/modules/': [
                 {
-                    text: "模块",
+                    text: '标准库封装',
+                    collapsed: false,
                     items: [
-                        {
-                            collapsed: false,
-                            items: [
-                                {text: 'console', link: '/modules/console'},
-                                {text: 'context', link: '/modules/context'},
-                                {text: 'time', link: '/modules/time'},
-                                {text: 'net/http', link: '/modules/net/http'},
-                            ]
-                        }
+                        {text: 'console', link: '/modules/console'},
+                        {text: 'context', link: '/modules/context'},
+                        {text: 'io', link: '/modules/io'},
+                        {text: 'os', link: '/modules/os'},
+                        {text: 'runtime', link: '/modules/runtime'},
+                        {text: 'strconv', link: '/modules/strconv'},
+                        {text: 'strings', link: '/modules/strings'},
+                        {text: 'time', link: '/modules/time'},
+                    ]
+                },
+                {
+                    text: '网络相关',
+                    collapsed: false,
+                    items: [
+                        {text: 'net/http', link: '/modules/net/http'},
+                        {text: 'net/http/httputil', link: '/modules/net/httputil'},
+                        {text: 'net/url', link: '/modules/net/url'},
                     ]
                 }
             ]
