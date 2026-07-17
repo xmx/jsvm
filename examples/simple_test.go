@@ -2,6 +2,7 @@ package examples_test
 
 import (
 	"context"
+	"fmt"
 	"log/slog"
 	"os"
 	"testing"
@@ -51,4 +52,23 @@ func TestSimple(t *testing.T) {
 
 	_, err = vm.RunScript(filename, code)
 	t.Log(err)
+}
+
+func TestHTTP(t *testing.T) {
+	vm := jsvm.NewVM(context.Background(), slog.Default())
+	vm.RegisterModules([]jsvm.ModuleExporter{
+		jsconsole.New(),
+		jshttp.New(),
+	})
+
+	_, err := vm.RunScript("main.js", `
+        import console from 'console'
+        import http from 'net/http'
+
+        const res = http.fetch('https://httpbin.io/get')
+        console.log(res.text())
+    `)
+	if err != nil {
+		fmt.Println("error:", err)
+	}
 }

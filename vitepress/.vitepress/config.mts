@@ -5,7 +5,7 @@ export default defineConfig({
     outDir: '../docs',
     title: "JSVM",
     description: "",
-    base: '',
+    base: '/jsvm/',
     lang: 'zh-CN',
     themeConfig: {
         // 自定义文档底部按钮的文本
